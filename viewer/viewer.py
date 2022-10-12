@@ -1,9 +1,12 @@
 import numpy as np
+import os 
 from vedo import *
 import cv2
 import vtk
 from .color_map import generate_objects_color_map,generate_objects_colors,generate_scatter_colors
 from .box_op import convert_box_type,get_line_boxes,get_mesh_boxes,velo_to_cam,get_box_points
+
+maindir = "/home/khushdeep/Desktop/3D-Detection-Tracking-Viewer/images"
 
 class Viewer:
     """
@@ -404,7 +407,7 @@ class Viewer:
         self.points_info.clear()
         self.boxes_info.clear()
 
-    def show_2D(self,box_color = (255,0,0),show_box_info=False,show_ids=True,points_colors=(0,0,255)):
+    def show_2D(self,sequence_id, idx,box_color = (255,0,0),show_box_info=False,show_ids=True,points_colors=(0,0,255)):
         """
         show object on image
         :param box_color: (list or tuple(3,)), default color
@@ -413,6 +416,9 @@ class Viewer:
         :param show_ids: (tuple(3,),default points color
         :return:
         """
+
+        outdir = f'{maindir}/{sequence_id}'
+        os.makedirs(outdir, exist_ok=True)
 
         if (self.cam_extrinsic_mat is None) or (self.cam_intrinsic_mat is None) or (self.image is None):
             return
@@ -507,6 +513,9 @@ class Viewer:
 
         cv2.imshow('im',self.image)
         cv2.waitKey(10)
+        
+        cv2.imwrite(f'{outdir}/{idx}.jpg', self.image)
+
         self.points_info.clear()
         self.boxes_info.clear()
 

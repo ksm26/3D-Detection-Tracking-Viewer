@@ -1,17 +1,18 @@
 from viewer.viewer import Viewer
 import numpy as np
+import re 
 from dataset.kitti_dataset import KittiTrackingDataset
 
 def kitti_viewer():
-    root="H:/data/tracking/training"
-    label_path = r"H:/data/tracking/training/label_02/0001.txt"
-    dataset = KittiTrackingDataset(root,seq_id=1,label_path=label_path)
+    root="/home/khushdeep/Desktop/3D-Multi-Object-Tracker/kitti_tracking/training"
+    label_path = f"{root}/label_02/0012.txt"
+    sequence_id = int(re.findall(r'\d+', label_path)[-1])
+    dataset = KittiTrackingDataset(root,seq_id=sequence_id,label_path=label_path)
 
     vi = Viewer(box_type="Kitti")
 
     for i in range(len(dataset)):
         P2, V2C, points, image, labels, label_names = dataset[i]
-
 
         if labels is not None:
             mask = (label_names=="Car")
@@ -25,9 +26,9 @@ def kitti_viewer():
         vi.set_extrinsic_mat(V2C)
         vi.set_intrinsic_mat(P2)
 
-        vi.show_2D()
+        vi.show_2D(sequence_id, i)
 
-        vi.show_3D()
+        # vi.show_3D()
 
 
 if __name__ == '__main__':
