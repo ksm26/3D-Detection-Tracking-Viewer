@@ -1,12 +1,10 @@
 import numpy as np
-import os 
 from vedo import *
 import cv2
 import vtk
 from .color_map import generate_objects_color_map,generate_objects_colors,generate_scatter_colors
-from .box_op import convert_box_type,get_line_boxes,get_mesh_boxes,velo_to_cam,get_box_points
-
-maindir = "/home/khushdeep/Desktop/3D-Detection-Tracking-Viewer/images"
+from .box_op import convert_box_type,get_line_boxes,get_mesh_boxes,velo_to_cam,get_box_points,get_box_points_nuscenes
+import os
 
 class Viewer:
     """
@@ -30,6 +28,8 @@ class Viewer:
         self.points_info = [] # (boxes:array(N,3), colors:array(N,3) or str)
         self.image = None
         self.first_show = True
+
+        self.img_no = 1
 
 
     def set_lights(self):
@@ -407,7 +407,7 @@ class Viewer:
         self.points_info.clear()
         self.boxes_info.clear()
 
-    def show_2D(self,sequence_id, idx,box_color = (255,0,0),show_box_info=False,show_ids=True,points_colors=(0,0,255)):
+    def show_2D(self,box_color = (255,0,0),show_box_info=False,show_ids=True,points_colors=(0,0,255)):
         """
         show object on image
         :param box_color: (list or tuple(3,)), default color
@@ -416,9 +416,6 @@ class Viewer:
         :param show_ids: (tuple(3,),default points color
         :return:
         """
-
-        outdir = f'{maindir}/{sequence_id}'
-        os.makedirs(outdir, exist_ok=True)
 
         if (self.cam_extrinsic_mat is None) or (self.cam_intrinsic_mat is None) or (self.image is None):
             return
@@ -512,10 +509,117 @@ class Viewer:
             self.image[y, x] = color
 
         cv2.imshow('im',self.image)
-        cv2.waitKey(10)
-        
-        cv2.imwrite(f'{outdir}/{idx}.jpg', self.image)
+        cv2.waitKey(100)
 
+        self.points_info.clear()
+        self.boxes_info.clear()
+
+
+    def save_2D(self,scene_no,box_color = (255,0,0),show_box_info=False,show_ids=True,points_colors=(0,0,255)):
+        """
+        show object on image
+        :param box_color: (list or tuple(3,)), default color
+        :param show_box_info: (bool), show box infos
+        :param show_ids: (bool),show box ids
+        :param show_ids: (tuple(3,),default points color
+        :return:
+        """
+
+        if (self.cam_extrinsic_mat is None) or (self.cam_intrinsic_mat is None) or (self.image is None):
+            return
+
+        H,W,_ = self.image.shape
+        os.makedirs(f'/media/storage/tracking/nuscenes/{scene_no}',exist_ok =True)
+
+        for info in self.boxes_info:
+            boxes, ids, colors, box_info=info
+
+            if boxes is None:
+                continue
+            elif len(boxes) == 0:
+                continue
+            else:
+
+                for box_id in range(len(boxes)):
+                    box = boxes[box_id]
+                    if type(colors) is not str:
+                        color = [colors[box_id][2],colors[box_id][1],colors[box_id][0]]
+                    else:
+                        color = box_color
+
+                    pts_3d_cam = get_box_points(box)
+                    pts_3d_cam = velo_to_cam(pts_3d_cam[:,0:3],self.cam_extrinsic_mat)
+
+                    all_img_pts = np.matmul(pts_3d_cam, self.cam_intrinsic_mat.T)  # (N, 3)
+                    
+                    #filter out targets with z less than 0
+                    show_index = np.where(all_img_pts[:, 2] > 0)[0]
+                    img_pts = all_img_pts[show_index]
+                    
+                    x, y = img_pts[:, 0] / img_pts[:, 2], img_pts[:, 1] / img_pts[:, 2]
+                    if len(x) <= 0:
+                            continue
+
+                    x = np.clip(x, 2, W-2)
+                    y = np.clip(y, 2, H-2)
+
+                    x = x.astype(np.int)
+                    y = y.astype(np.int)
+
+                    self.image[y, x] = color
+
+                    x2 = x + 1
+                    self.image[y, x2] = color
+                    y2 = y + 1
+                    self.image[y2, x] = color
+                    self.image[y2, x2] = color
+
+                    info = ""
+                    if ids is not None and show_ids:
+                        info +=  str(ids[box_id])+" "
+                    if box_info is not None and show_box_info:
+                        info += str(box_info[box_id])
+
+                    if info != '':
+
+                        text = info
+                        org = ((max(x) - min(x)) // 2 + min(x), min(y) - 5)
+                        fontFace = cv2.FONT_HERSHEY_DUPLEX
+                        fontScale = 0.7
+                        fontcolor = color  # BGR
+                        thickness = 1
+                        lineType = 4
+                        cv2.putText(self.image, text, org, fontFace, fontScale, fontcolor, thickness, lineType)
+
+        for points,colors in self.points_info:
+
+            if type(colors) is tuple:
+
+                color = [colors[2],colors[1],colors[0]]
+            else:
+                color = points_colors
+
+            pts_3d_cam = velo_to_cam(points[:, 0:3], self.cam_extrinsic_mat)
+
+            all_img_pts = np.matmul(pts_3d_cam, self.cam_intrinsic_mat.T)  # (N, 3)
+            
+            #filter out targets with z less than 0
+            show_index = np.where(all_img_pts[:, 2] > 0)[0]
+            img_pts = all_img_pts[show_index]
+            
+            x, y = img_pts[:, 0] / img_pts[:, 2], img_pts[:, 1] / img_pts[:, 2]
+
+            x = np.clip(x, 2, W - 2)
+            y = np.clip(y, 2, H - 2)
+
+            x = x.astype(np.int)
+            y = y.astype(np.int)
+
+            self.image[y, x] = color
+
+        image_name = str(self.img_no)
+        self.img_no +=1
+        cv2.imwrite(f'/media/storage/tracking/nuscenes/{scene_no}/{image_name }.png', self.image)
         self.points_info.clear()
         self.boxes_info.clear()
 
