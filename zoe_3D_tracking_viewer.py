@@ -7,13 +7,17 @@ def read_detection_label(detection_list):
     boxes = []
     names = []
     for line in detection_list:
-        this_name = line[0]
+        this_name = line[2]
+        frame_id = int(line[0])
+        ob_id = int(line[1])
         if this_name != "DontCare":
-            line = np.array(line[-7:],np.float32)
+            line = np.array(line[7:14],np.float32).tolist()
+            line.append(ob_id)
             boxes.append(line)
             names.append(this_name)
 
     return np.array(boxes),np.array(names)
+
 
 def zoe_viewer(image,track_obj,lidar_2_cam,camera_intrinsic):
     vi = Viewer(box_type="OpenPCDet")

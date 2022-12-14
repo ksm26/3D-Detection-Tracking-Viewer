@@ -3,7 +3,7 @@ from vedo import *
 import cv2
 import vtk
 from .color_map import generate_objects_color_map,generate_objects_colors,generate_scatter_colors
-from .box_op import convert_box_type,get_line_boxes,get_mesh_boxes,velo_to_cam,get_box_points,get_box_points_nuscenes
+from .box_op import convert_box_type,get_line_boxes,get_mesh_boxes,velo_to_cam,get_box_points
 import os
 
 class Viewer:
@@ -416,7 +416,6 @@ class Viewer:
         :param show_ids: (tuple(3,),default points color
         :return:
         """
-
         if (self.cam_extrinsic_mat is None) or (self.cam_intrinsic_mat is None) or (self.image is None):
             return
 
@@ -428,6 +427,7 @@ class Viewer:
             if boxes is None:
                 continue
             elif len(boxes) == 0:
+                print('len of boxes=0 in viewer')
                 continue
             else:
 
@@ -441,7 +441,7 @@ class Viewer:
                     pts_3d_cam = get_box_points(box)
                     pts_3d_cam = velo_to_cam(pts_3d_cam[:,0:3],self.cam_extrinsic_mat)
 
-                    all_img_pts = np.matmul(pts_3d_cam, self.cam_intrinsic_mat.T)  # (N, 3)
+                    all_img_pts = np.matmul(pts_3d_cam[:,0:3], self.cam_intrinsic_mat.T)  # (N, 3)
                     
                     #filter out targets with z less than 0
                     show_index = np.where(all_img_pts[:, 2] > 0)[0]
